@@ -1,3 +1,5 @@
 node_modules
 dist
 .DS_Store
+# runtime log file written by the API
+server/data/
