@@ -6,7 +6,7 @@ export const MAX_LOANS = 3;
 // Returns a human reason why this book can't be lent right now, or null if it can.
 export function getBorrowBlock(book, loans) {
   if (loans.some((loan) => loan.bookId === book.id)) return 'Already borrowed by this member';
-  if (loans.length >= MAX_LOANS) return `Loan limit reached (${MAX_LOANS})`;
-  if (book.copies < 1) return 'None available';
+  if (loans.length >= MAX_LOANS) return `Loan limit reached (${MAX_LOANS} books)`;
+  if (book.copies < 1) return 'No copies left to lend';
   return null;
 }
