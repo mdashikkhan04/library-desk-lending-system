@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { fetchMember } from './api.js';
+import { fetchMember, isAbort } from './api.js';
+import { useLoans } from './hooks/useLoans.js';
 import BookList from './components/BookList.jsx';
 import MyLoans from './components/MyLoans.jsx';
 
@@ -8,16 +9,30 @@ const MEMBER_ID = 'm1';
 
 export default function App() {
   const [member, setMember] = useState(null);
+  const [memberError, setMemberError] = useState(null);
+  const { loans, status, error, reload } = useLoans(MEMBER_ID);
 
   useEffect(() => {
-    fetchMember(MEMBER_ID).then(setMember);
+    const controller = new AbortController();
+    fetchMember(MEMBER_ID, { signal: controller.signal })
+      .then(setMember)
+      .catch((err) => {
+        if (!isAbort(err)) setMemberError(err);
+      });
+    return () => controller.abort();
   }, []);
+
+  const memberLabel = memberError
+    ? 'Could not load member'
+    : member
+      ? `Serving: ${member.name}`
+      : 'Loading member…';
 
   return (
     <div className="app">
       <header className="header">
         <h1>Library Desk</h1>
-        <span className="member">{member ? `Serving: ${member.name}` : 'Loading member…'}</span>
+        <span className="member">{memberLabel}</span>
       </header>
       <main className="layout">
         <section className="panel">
@@ -26,7 +41,7 @@ export default function App() {
         </section>
         <aside className="panel">
           <h2>Current loans</h2>
-          <MyLoans />
+          <MyLoans loans={loans} status={status} error={error} onRetry={reload} />
         </aside>
       </main>
     </div>
