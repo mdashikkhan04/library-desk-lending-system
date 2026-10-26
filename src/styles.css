@@ -146,3 +146,8 @@ body {
   margin: 0 0 8px;
   font-size: 0.85rem;
 }
+
+.reason {
+  font-size: 0.85rem;
+  margin-top: 2px;
+}

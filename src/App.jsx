@@ -10,7 +10,7 @@ const MEMBER_ID = 'm1';
 export default function App() {
   const [member, setMember] = useState(null);
   const [memberError, setMemberError] = useState(null);
-  const { loans, status, error, reload } = useLoans(MEMBER_ID);
+  const { loans, status, error, addLoan, reload } = useLoans(MEMBER_ID);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -37,7 +37,13 @@ export default function App() {
       <main className="layout">
         <section className="panel">
           <h2>Catalogue</h2>
-          <BookList />
+          <BookList
+            memberId={MEMBER_ID}
+            loans={loans}
+            loansStatus={status}
+            onLoanAdded={addLoan}
+            onLoansStale={reload}
+          />
         </section>
         <aside className="panel">
           <h2>Current loans</h2>

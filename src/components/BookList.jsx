@@ -1,10 +1,38 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useBookSearch } from '../hooks/useBookSearch.js';
+import { useBorrow } from '../hooks/useBorrow.js';
+import { getBorrowBlock } from '../lib/rules.js';
 import BookCard from './BookCard.jsx';
 
-export default function BookList() {
+export default function BookList({ memberId, loans, loansStatus, onLoanAdded, onLoansStale }) {
   const [query, setQuery] = useState('');
-  const { books, status, error, reload } = useBookSearch(query);
+  const { books, status, error, patchBook, reload } = useBookSearch(query);
+
+  // Success: show the server's new stock count and the new loan right away.
+  const handleBorrowed = useCallback(
+    ({ loan, book }) => {
+      patchBook(book);
+      onLoanAdded(loan);
+    },
+    [patchBook, onLoanAdded],
+  );
+
+  // The server said "no" because our screen was stale: refresh both panels.
+  const handleStale = useCallback(() => {
+    reload();
+    onLoansStale();
+  }, [reload, onLoansStale]);
+
+  const { attempt, borrow } = useBorrow({
+    memberId,
+    onBorrowed: handleBorrowed,
+    onStale: handleStale,
+  });
+
+  // The loan limit depends on the loans, so don't allow lending until we know them.
+  // Only one borrow at a time: two in flight could race past the limit.
+  const loansReady = loansStatus === 'ready';
+  const locked = !loansReady || attempt?.status === 'pending';
 
   return (
     <div>
@@ -27,7 +55,14 @@ export default function BookList() {
       )}
       <ul className="book-list">
         {books.map((book) => (
-          <BookCard key={book.id} book={book} />
+          <BookCard
+            key={book.id}
+            book={book}
+            blockReason={loansReady ? getBorrowBlock(book, loans) : null}
+            attempt={attempt?.bookId === book.id ? attempt : null}
+            locked={locked}
+            onBorrow={borrow}
+          />
         ))}
       </ul>
       {status === 'ready' && books.length === 0 && <p className="muted">No books found.</p>}
