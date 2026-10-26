@@ -1,6 +1,3 @@
-// Thin wrapper around fetch. Every failure becomes an ApiError so the UI can
-// reason about it with one shape: { message, status, code, retryable }.
-
 export class ApiError extends Error {
   constructor(message, { status = 0, code } = {}) {
     super(message);
@@ -8,9 +5,6 @@ export class ApiError extends Error {
     this.status = status; // 0 means "never got an HTTP response" (network down)
     this.code = code;
   }
-
-  // 5xx and network failures are "outcome unknown": the server may or may not
-  // have done the work. 4xx are definitive answers and must not be retried.
   get retryable() {
     return this.status === 0 || this.status >= 500;
   }
@@ -37,27 +31,32 @@ async function request(path, options) {
 
 export const isAbort = (err) => err?.name === 'AbortError';
 
-export const fetchMember = (memberId, { signal } = {}) =>
-  request(`/api/members/${memberId}`, { signal });
+const catalogueUrl = (base, query, status) => {
+  const params = new URLSearchParams({ q: query, status });
+  return `${base}?${params}`;
+};
 
-export const fetchBooks = (query = '', { signal } = {}) =>
-  request(`/api/books?q=${encodeURIComponent(query)}`, { signal });
+// status: 'all' | 'available' | 'unavailable'
+export const fetchBooks = (query = '', { status = 'all', signal } = {}) =>
+  request(catalogueUrl('/api/books', query, status), { signal });
 
-export const fetchLoans = (memberId, { signal } = {}) =>
-  request(`/api/members/${memberId}/loans`, { signal });
+// Staff-only: same list, but each book also says who holds it.
+export const fetchStaffBooks = (query = '', { status = 'all', signal } = {}) =>
+  request(catalogueUrl('/api/staff/books', query, status), { signal });
 
-// The Idempotency-Key identifies ONE staff intent ("lend this book to this
-// member"), not one HTTP attempt. Retries of the same intent reuse the key.
-export const borrowBook = (bookId, memberId, idempotencyKey) =>
-  request(`/api/books/${bookId}/borrow`, {
+export const fetchStaffMembers = ({ signal } = {}) => request('/api/staff/members', { signal });
+
+export const fetchStaffEvents = ({ signal } = {}) => request('/api/staff/events?limit=100', { signal });
+
+const post = (path, payload, idempotencyKey) =>
+  request(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
-    body: JSON.stringify({ memberId }),
+    body: JSON.stringify(payload),
   });
 
-export const returnBook = (bookId, memberId, idempotencyKey) =>
-  request(`/api/books/${bookId}/return`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
-    body: JSON.stringify({ memberId }),
-  });
+export const borrowBook = (bookId, { memberId, username }, idempotencyKey) =>
+  post(`/api/books/${bookId}/borrow`, { memberId, username }, idempotencyKey);
+
+export const returnBook = (bookId, { memberId }, idempotencyKey) =>
+  post(`/api/books/${bookId}/return`, { memberId }, idempotencyKey);
