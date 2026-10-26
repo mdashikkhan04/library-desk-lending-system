@@ -1,55 +1,14 @@
-import { useEffect, useState } from 'react';
-import { fetchMember, isAbort } from './api.js';
-import { useLoans } from './hooks/useLoans.js';
-import BookList from './components/BookList.jsx';
-import MyLoans from './components/MyLoans.jsx';
+import Home from './pages/Home.jsx';
+import MemberPage from './pages/MemberPage.jsx';
+import StaffPage from './pages/StaffPage.jsx';
 
-// The desk is always operated on behalf of one member for now.
-const MEMBER_ID = 'm1';
+// Two separate screens, no login for now:
+//   /member  members browse the catalogue and borrow books
+//   /staff   staff see every book, who holds it, and the history
+const PAGES = { '/member': MemberPage, '/staff': StaffPage };
 
 export default function App() {
-  const [member, setMember] = useState(null);
-  const [memberError, setMemberError] = useState(null);
-  const { loans, status, error, addLoan, reload } = useLoans(MEMBER_ID);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchMember(MEMBER_ID, { signal: controller.signal })
-      .then(setMember)
-      .catch((err) => {
-        if (!isAbort(err)) setMemberError(err);
-      });
-    return () => controller.abort();
-  }, []);
-
-  const memberLabel = memberError
-    ? 'Could not load member'
-    : member
-      ? `Serving: ${member.name}`
-      : 'Loading member…';
-
-  return (
-    <div className="app">
-      <header className="header">
-        <h1>Library Desk</h1>
-        <span className="member">{memberLabel}</span>
-      </header>
-      <main className="layout">
-        <section className="panel">
-          <h2>Catalogue</h2>
-          <BookList
-            memberId={MEMBER_ID}
-            loans={loans}
-            loansStatus={status}
-            onLoanAdded={addLoan}
-            onLoansStale={reload}
-          />
-        </section>
-        <aside className="panel">
-          <h2>Current loans</h2>
-          <MyLoans loans={loans} status={status} error={error} onRetry={reload} />
-        </aside>
-      </main>
-    </div>
-  );
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  const Page = PAGES[path] ?? Home;
+  return <Page />;
 }
